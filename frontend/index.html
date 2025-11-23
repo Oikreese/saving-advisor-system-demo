@@ -2086,9 +2086,24 @@
                 
                 // Update Recommendation API KPI
                 const recommendationKpi = businessKpis.recommendation_api;
-                if (recommendationKpi && recommendationKpi.response_time_s !== undefined) {
-                    document.getElementById('kpi-recommendation-time').textContent = recommendationKpi.response_time_s;
-                    updateKPICard('recommendation', recommendationKpi.status);
+                const recommendationTimeEl = document.getElementById('kpi-recommendation-time');
+                if (recommendationKpi) {
+                    if (recommendationKpi.response_time_s !== undefined) {
+                        recommendationTimeEl.textContent = recommendationKpi.response_time_s;
+                        updateKPICard('recommendation', recommendationKpi.status);
+                    } else if (recommendationKpi.status === 'error') {
+                        // Show error state
+                        recommendationTimeEl.textContent = 'エラー';
+                        recommendationTimeEl.parentElement.setAttribute('data-status', 'error');
+                        updateKPICard('recommendation', 'poor');
+                    } else {
+                        // No data available
+                        recommendationTimeEl.textContent = '--';
+                        updateKPICard('recommendation', 'poor');
+                    }
+                } else {
+                    recommendationTimeEl.textContent = '--';
+                    updateKPICard('recommendation', 'poor');
                 }
                 
                 // Update Cache Hit Rate KPI

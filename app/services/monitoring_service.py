@@ -148,17 +148,39 @@ class MonitoringService:
         try:
             start_time = time.perf_counter()
             client = await self.get_http_client()
-            response = await client.get(
-                f"http://localhost:8080/api/v1/recommendations-firestore-primary/analyze/1001"
-            )
-            end_time = time.perf_counter()
             
+            # Try with a timeout to avoid hanging
+            try:
+                response = await asyncio.wait_for(
+                    client.get(f"http://localhost:8080/api/v1/recommendations-firestore-primary/analyze/1001"),
+                    timeout=15.0  # 15 second timeout for complex analysis
+                )
+            except asyncio.TimeoutError:
+                return {
+                    "status": "error", 
+                    "error": "Request timeout (>15s)", 
+                    "available": False,
+                    "response_time_s": None
+                }
+            except httpx.ConnectError as e:
+                logger.warning(f"Recommendation API connection error: {e}")
+                return {
+                    "status": "error", 
+                    "error": "Connection failed - service may be down", 
+                    "available": False,
+                    "response_time_s": None
+                }
+            
+            end_time = time.perf_counter()
             response_time_s = end_time - start_time
             recommendations_count = 0
             
             if response.status_code == 200:
-                data = response.json()
-                recommendations_count = len(data.get("consensus_recommendations", []))
+                try:
+                    data = response.json()
+                    recommendations_count = len(data.get("consensus_recommendations", []))
+                except:
+                    recommendations_count = 0
                 
                 # analysisタイプ 判断
                 category = "簡単analysis" if response_time_s < 2 else "複雑analysis"
@@ -178,10 +200,30 @@ class MonitoringService:
                     "status": status,
                     "available": True
                 }
+            elif response.status_code == 404:
+                # User not found - this is expected if no sample data
+                return {
+                    "status": "error", 
+                    "error": "User not found (404) - generate sample data first", 
+                    "available": False,
+                    "response_time_s": None,
+                    "suggestion": "Run: python3 scripts/generate_sample_data.py"
+                }
             else:
-                return {"status": "error", "error": f"HTTP {response.status_code}", "available": False}
+                return {
+                    "status": "error", 
+                    "error": f"HTTP {response.status_code}", 
+                    "available": False,
+                    "response_time_s": None
+                }
         except Exception as e:
-            return {"status": "error", "error": str(e), "available": False}
+            logger.error(f"Recommendation KPI check failed: {e}")
+            return {
+                "status": "error", 
+                "error": str(e), 
+                "available": False,
+                "response_time_s": None
+            }
 
     async def _get_cache_hit_rate_kpi(self) -> Dict[str, Any]:
         """キャッシュヒット率 KPI: > 80%"""

@@ -52,13 +52,51 @@ async def analyze_user_portfolio_v2(
                 analysis_time = (datetime.now() - start_time).total_seconds() * 1000
                 logger.info(f"キャッシュされたanalysis結果 返します ({analysis_time:.2f}ms)")
                 
+                # 资产类型转换：从英文转换为日文（兼容旧数据）
+                asset_type_mapping = {
+                    'Points': 'ポイント',
+                    'Earnings': '売上金・給与・報酬',
+                    'Items': 'モノ',
+                    'Giga': 'ギガ',
+                    'Stablecoin': 'ステーブルコイン'
+                }
+                
+                def convert_asset_types_in_dict(data):
+                    """递归转换字典中的资产类型"""
+                    if isinstance(data, dict):
+                        if 'asset_type' in data and data['asset_type'] in asset_type_mapping:
+                            data['asset_type'] = asset_type_mapping[data['asset_type']]
+                        for value in data.values():
+                            convert_asset_types_in_dict(value)
+                    elif isinstance(data, list):
+                        for item in data:
+                            convert_asset_types_in_dict(item)
+                
+                # ai_response 从数据库读取时已经是字典（JSON 类型）
+                ai_response = cached_analysis.get('ai_response', {})
+                if not isinstance(ai_response, dict):
+                    # 如果是字符串，尝试解析
+                    if isinstance(ai_response, str):
+                        try:
+                            ai_response = json.loads(ai_response)
+                        except:
+                            ai_response = {}
+                    else:
+                        ai_response = {}
+                
+                # 转换所有嵌套的资产类型
+                convert_asset_types_in_dict(ai_response)
+                
+                analyses = ai_response.get('analyses', [])
+                consensus_recommendations = ai_response.get('consensus_recommendations', [])
+                
                 # 結果 build
                 return MultiAgentResponse(
                     user_id=user_id,
-                    analyses=cached_analysis.get('ai_response', {}).get('analyses', []),
-                    consensus_recommendations=cached_analysis.get('ai_response', {}).get('consensus_recommendations', []),
-                    conflicting_opinions=cached_analysis.get('ai_response', {}).get('conflicting_opinions', []),
-                    overall_assessment=cached_analysis.get('ai_response', {}).get('overall_assessment', ''),
+                    analyses=analyses,
+                    consensus_recommendations=consensus_recommendations,
+                    conflicting_opinions=ai_response.get('conflicting_opinions', []),
+                    overall_assessment=ai_response.get('overall_assessment', ''),
                     generated_at=datetime.fromisoformat(cached_analysis.get('created_at'))
                 )
         
