@@ -1,6 +1,13 @@
 # Saving Advisor System
 
 An AI-powered financial advisory system that helps users optimize their asset allocation and financial decisions using multi-agent AI analysis.
+(Demo demonstrated by Mercari App as example)
+
+<img width="1612" height="968" alt="1" src="https://github.com/user-attachments/assets/956ccde4-e84d-4a9c-be19-8f6fca75db34" />
+<img width="1612" height="968" alt="2" src="https://github.com/user-attachments/assets/27f57c02-fb2b-4328-9557-cbe0aac34457" />
+<img width="1612" height="968" alt="3" src="https://github.com/user-attachments/assets/54163f1c-05d7-457e-99fb-397fbc31b0c4" />
+<img width="1612" height="968" alt="4" src="https://github.com/user-attachments/assets/78b49bc0-ffdf-4b90-924a-9f8d695c0d3e" />
+<img width="1612" height="968" alt="5" src="https://github.com/user-attachments/assets/b0eaaefb-b0ce-479f-bf58-7c7ae65ef8fe" />
 
 ## Features
 
