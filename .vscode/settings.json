@@ -1,0 +1,19 @@
+{
+    "go.toolsManagement.checkForUpdates": "local",
+    "go.useLanguageServer": true,
+    "go.lintTool": "golangci-lint",
+    "go.buildOnSave": "workspace",
+    "go.lintOnSave": "workspace",
+    "go.formatTool": "goimports",
+    "files.associations": {
+        "*.proto": "proto3"
+    },
+    "protoc": {
+        "compile_on_save": true,
+        "options": [
+            "--proto_path=proto",
+            "--go_out=api/proto",
+            "--go-grpc_out=api/proto"
+        ]
+    }
+}

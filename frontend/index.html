@@ -1,0 +1,2339 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💰 Saving Advisor System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/communication-layer.js"></script>
+    <style>
+        :root {
+            --mercari-red: #d9534f;
+            --mercari-background: #f5f5f5;
+            --mercari-text: #333;
+            --mercari-blue: #0099e8;
+            --shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        body {
+            background-color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        .phone-container {
+            width: 100%;
+            max-width: 420px;
+            background-color: var(--mercari-background);
+            border-radius: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+            border: 8px solid #333;
+            position: relative; /* Add position context for the modal */
+        }
+
+        .screen {
+            height: 800px;
+            display: flex;
+            overflow-x: scroll;
+            overflow-y: hidden;
+            scroll-behavior: smooth;
+            /* Add scroll snapping for better UX */
+            scroll-snap-type: x mandatory;
+        }
+
+        .screen::-webkit-scrollbar {
+            display: none;
+        }
+
+        .page-section {
+            /* Changed from min-height to height to enforce a fixed container for internal scrolling */
+            height: 800px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #ddd; /* Use right border for horizontal layout */
+            /* Flex properties for horizontal layout */
+            width: 100%;
+            flex-shrink: 0;
+             /* Add scroll snapping alignment */
+            scroll-snap-align: start;
+        }
+        
+        /* New class for the scrollable content area within a page-section */
+        .page-content-scrollable {
+            flex: 1; /* Allows the container to grow and shrink */
+            overflow-y: auto; /* Enables vertical scrolling ONLY if content overflows */
+            min-height: 0; /* Prevents flexbox overflow issues */
+            padding-bottom: 20px; /* Add some space at the bottom */
+        }
+
+        #wallet-section { 
+            background-image: url('image/wallet_empty.jpeg');
+            background-size: cover;
+            background-position: top center;
+            justify-content: flex-start; /* Align items to the top */
+            padding-top: 60px; /* Adjust padding to make space for custom header */
+            position: relative;
+        }
+        #analysis-section, #agents-section, #summary-section, #tasks-section {
+            padding-top: 100px; /* Space for upper bar */
+            padding-bottom: 90px; /* Space for under bar */
+            position: relative; /* Add positioning context for the title */
+        }
+        #analysis-section { background: linear-gradient(to bottom, #fff1f2, #ffe4e6); }
+        #agents-section { 
+            background: linear-gradient(to bottom, #e3f2fd, #d1ecff); 
+            position: relative; /* Make this a positioning context for the modal */
+        }
+        #summary-section { background: linear-gradient(to bottom, #e8f5e9, #dcf0dc); }
+        #tasks-section { 
+            background-color: #fce4ec; 
+            position: relative; /* Make this a positioning context for the FAB */
+            border-right: none; /* No border for the last section */
+        }
+
+        .upper-bar, .under-bar {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .upper-bar {
+            top: 0;
+        }
+
+        .under-bar {
+            bottom: 0;
+        }
+
+        .wallet-header {
+            position: absolute;
+            top: 40px; /* From 20px to 40px to move it down */
+            right: 20px;
+            z-index: 10;
+        }
+
+        .user-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: transparent;
+            color: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+            border: none;
+        }
+
+        .user-dropdown {
+            display: none;
+            position: absolute;
+            top: 50px;
+            right: 0;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            list-style: none;
+            padding: 5px 0;
+            margin: 0;
+            z-index: 1001;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .user-dropdown li a {
+            display: block;
+            padding: 8px 20px;
+            color: var(--mercari-text);
+            text-decoration: none;
+            transition: background-color 0.2s;
+        }
+
+        .user-dropdown li a:hover {
+            background-color: #f0f0f0;
+        }
+        
+        #increase-assets-btn-container {
+            position: absolute;
+            top: 60%; /* Adjusted position to match the green box */
+            left: 83%;
+            transform: translate(-50%, -50%);
+            width: 25%; /* Adjusted width */
+            max-width: 340px;
+        }
+
+        #balance-overlay-container {
+            position: absolute;
+            top: 46%; /* Adjusted position to match the pink box */
+            left: 15%;
+            transform: translateY(-50%);
+            text-align: left;
+        }
+
+        #balance-overlay-value {
+            font-size: 1.25rem;
+            font-weight: regular;
+            color: #333;
+        }
+
+        .card-custom {
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .btn-mercari {
+            background-color: var(--mercari-red);
+            color: white;
+            font-weight: regular;
+            font-size: 12px;
+            border-radius: 5px;
+            padding: 8px 8px;
+            border: none;
+            width: 100%;
+            transition: transform 0.2s;
+        }
+        .btn-mercari:hover {
+            transform: scale(1.05);
+            background-color: #c9302c;
+            color: white;
+        }
+
+        .btn-analysis-page {
+            background-color: var(--mercari-red);
+            color: white;
+            font-weight: bold;
+            border-radius: 8px; /* 角の丸み */
+            padding: 12px 20px; /* 内側の余白 */
+            border: none;
+            width: 100%;
+            box-shadow: none;
+            transition: transform 0.2s;
+            margin-top: 20px; /* 上の要素とのスペース */
+            font-size: 1rem; /* 文字サイズ */
+        }
+        .btn-analysis-page:hover {
+            transform: scale(1.02);
+            background-color: #c9302c;
+            color: white;
+        }
+        
+        .section-title {
+            position: absolute;
+            top: 55px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 101; /* Above the upper bar (z-index: 100) */
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--mercari-text);
+            width: 100%;
+            text-align: center;
+            pointer-events: none; /* Make title unclickable */
+        }
+        
+        .loading-spinner {
+            display: none;
+            margin: 20px auto;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--mercari-red);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .agent-card {
+            background-color: white;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            padding: 15px;
+            box-shadow: var(--shadow);
+        }
+
+        .agent-card .form-check-label {
+            width: 100%;
+        }
+
+        .floating-btn {
+            position: absolute;
+            bottom: 120px; /* Adjust vertical position */
+            right: 30px;  /* Adjust horizontal position */
+            background-color: var(--mercari-blue);
+            color: white;
+            border-radius: 50%;
+            width: 70px;  /* Increased size */
+            height: 70px; /* Increased size */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2); /* Softer shadow */
+            font-size: 14px; /* Increased font size */
+            font-weight: bold;
+            text-align: center;
+            cursor: pointer;
+            z-index: 1000;
+            border: none; /* Removed white border */
+            line-height: 1.2; /* Adjust line height for two lines */
+        }
+
+        .wallet-balance {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            text-align: center;
+        }
+        .wallet-balance .balance-amount {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        .wallet-balance .balance-label {
+            color: #6c757d;
+        }
+        
+        .analysis-text {
+            background: rgba(255,255,255,0.7);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+        .balance-value {
+            font-size: 1.25rem;
+            font-weight: 500;
+            color: var(--mercari-text);
+        }
+
+        .agent-nav-container {
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+            flex-shrink: 0; /* フレックスコンテナ内でのナビゲーションバーの圧縮を防止 */
+        }
+        .agent-nav {
+            display: flex;
+            justify-content: space-around;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .agent-nav-link {
+            background: none;
+            border: none;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: #6c757d;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease-in-out;
+        }
+        .agent-nav-link.active {
+            font-weight: bold;
+            color: var(--mercari-red);
+            border-bottom-color: var(--mercari-red);
+        }
+
+        .agent-page {
+            display: none; /* デフォルトですべてのページを非表示 */
+        }
+        .agent-page.active {
+            display: block; /* アクティブなページのみ表示 */
+        }
+
+        .agent-findings-summary {
+            background-color: #fff;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-left: 5px solid var(--mercari-blue);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .agent-findings-summary p {
+            margin: 0;
+        }
+
+
+
+        .recommendation-item {
+            background-color: #fff;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.07);
+            transition: all 0.2s ease-in-out;
+            border: 2px solid transparent;
+        }
+
+        .recommendation-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .recommendation-content {
+            padding: 15px;
+        }
+
+        .recommendation-title {
+            font-weight: bold;
+            color: var(--mercari-text);
+            font-size: 1rem;
+            margin-bottom: 5px;
+        }
+
+        .recommendation-description {
+            font-size: 0.85rem;
+            color: #6c757d;
+            line-height: 1.5;
+            margin-bottom: 3px;
+        }
+
+        .recommendation-gain {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #198754;
+            text-align: right;
+            margin-bottom: 3px; /* Reduced margin for spacing */
+        }
+
+        .feedback-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+        .feedback-btn {
+            padding: 5px 12px;
+            font-size: 0.8rem;
+            border-radius: 15px;
+            border: 1px solid #ddd;
+            background-color: #f8f9fa;
+            cursor: pointer;
+            color: #666; /* デフォルトのテキストカラーを追加 */
+            transition: all 0.2s ease;
+        }
+        .feedback-btn:hover {
+            opacity: 0.8;
+            transform: translateY(-1px);
+        }
+        .feedback-btn.btn-success { 
+            color: #fff; 
+            background-color: #198754; 
+            border-color: #198754; 
+        }
+        .feedback-btn.btn-danger { 
+            color: #fff; 
+            background-color: #dc3545; 
+            border-color: #dc3545; 
+        }
+        .feedback-btn.btn-primary { 
+            color: #fff; 
+            background-color: #0d6efd; 
+            border-color: #0d6efd; 
+        }
+        .feedback-status {
+            text-align: right;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #f0f0f0;
+        }
+        .status-accepted { color: #198754; }
+        .status-rejected { color: #dc3545; }
+
+        /* Modal Styles */
+        .modal {
+            display: none; 
+            position: absolute;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            
+            /* New styles for centering */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            
+            /* Animation styles */
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal.show {
+            opacity: 1;
+        }
+        
+        .modal-dialog {
+            position: relative;
+            width: 90%;
+            max-width: 380px;
+            margin-top: 90px;
+            /* Replace slide-up animation with scale */
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+        
+        .modal.show .modal-dialog {
+            transform: scale(1);
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px; /* Rounded corners on all sides */
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+        
+        .modal-header {
+            padding: 20px 20px 10px 20px;
+            border-bottom: none;
+            text-align: center;
+            position: relative;
+        }
+        
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+        }
+        
+        .close-modal-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #999;
+            cursor: pointer;
+            padding: 5px;
+            line-height: 1;
+        }
+        
+        .modal-body {
+            padding: 10px 20px 20px 20px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        
+        .modal-subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .list-group {
+            border: none;
+        }
+        
+        .list-group-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            padding: 15px;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+        }
+        
+        .list-group-item:hover {
+            background: #e9ecef;
+        }
+        
+        .list-group-item input[type="radio"] {
+            margin-right: 12px;
+            transform: scale(1.2);
+        }
+        
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 12px;
+        }
+        
+        .modal-footer .btn {
+            flex: 1;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-weight: 500;
+            font-size: 16px;
+        }
+        
+        .modal-footer .btn-secondary {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            color: #666;
+        }
+        
+        .modal-footer .btn-primary {
+            background: var(--mercari-red);
+            border: none;
+            color: white;
+        }
+        
+        .form-control {
+            border-radius: 12px;
+            border: 1px solid #e0e0e0;
+            padding: 12px;
+        }
+        
+        .form-label {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        /* Loading overlay for regeneration */
+        .regeneration-loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            flex-direction: column;
+            border-radius: 30px; /* Match phone container border radius */
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--mercari-red);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: #666;
+            font-size: 16px;
+            text-align: center;
+        }
+        
+        .modal-error-message {
+            background: #ffeaea;
+            border: 1px solid #ff6b6b;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+            color: #d63447;
+            font-size: 14px;
+            text-align: center;
+            animation: slideDown 0.3s ease;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Toast notification */
+        .toast-container {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2100;
+            max-width: 90%;
+        }
+        
+        .toast {
+            background: #333;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transform: translateY(-80px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            white-space: nowrap;
+            max-width: 100%;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+        
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        .toast.success {
+            background: #4CAF50;
+        }
+        
+        .toast.error {
+            background: #f44336;
+        }
+        
+        /* Monitoring Dashboard Styles */
+        #monitoring-dashboard {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 320px;
+            max-height: calc(100vh - 40px); /* 最大の高さを制限し、上下に余白を設ける */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px) saturate(180%);
+            -webkit-backdrop-filter: blur(10px) saturate(180%);
+            border-radius: 12px;
+            border: 1px solid rgba(209, 213, 219, 0.3);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease-in-out;
+            z-index: 9999;
+            overflow-y: auto; /* 垂直スクロールを許可 */
+            overflow-x: hidden; /* 水平方向のオーバーフローを隠す */
+        }
+
+        #dashboard-toggle {
+            position: absolute;
+            top: -1px;
+            right: -1px;
+            width: 48px;
+            height: 48px;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 0 12px 0 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        #dashboard-toggle:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        #dashboard-toggle svg {
+            width: 24px;
+            height: 24px;
+            color: #374151;
+        }
+
+        #dashboard-content {
+            padding: 16px;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-right: 48px;
+        }
+
+        .dashboard-header h4 {
+            margin: 0;
+            font-size: 16px;
+            color: #111827;
+        }
+
+        #last-updated {
+            font-size: 12px;
+            color: #6b7280;
+            font-family: monospace;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .kpi-grid .kpi-card:nth-child(5) {
+            grid-column: span 2;
+        }
+
+        .kpi-card {
+            background-color: rgba(255, 255, 255, 0.5);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: border-color 0.3s ease;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        
+        .kpi-card.status-excellent {
+            border-color: #10b981;
+        }
+        
+        .kpi-card.status-good {
+            border-color: #22c55e;
+        }
+        
+        .kpi-card.status-warning {
+            border-color: #f59e0b;
+        }
+        
+        .kpi-card.status-poor,
+        .kpi-card.status-critical {
+            border-color: #ef4444;
+        }
+
+        .kpi-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .kpi-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1f2937;
+            margin: 4px 0;
+        }
+
+        .kpi-target {
+            font-size: 9px;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .kpi-status {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: white;
+            text-transform: uppercase;
+            margin: 4px 0;
+        }
+
+        .kpi-status[data-status="excellent"] {
+            background-color: #10b981;
+        }
+
+        .kpi-status[data-status="good"] {
+            background-color: #22c55e;
+        }
+
+        .kpi-status[data-status="poor"] {
+            background-color: #ef4444;
+        }
+
+        .kpi-status[data-status="offline"] {
+            background-color: #6b7280;
+        }
+
+        .dashboard-details {
+            border-top: 1px solid rgba(209, 213, 219, 0.5);
+            padding-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 12px;
+        }
+
+        .dashboard-details small {
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        .dashboard-details span {
+            font-weight: 500;
+        }
+
+        #monitoring-dashboard.collapsed {
+            width: 48px;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        #monitoring-dashboard.collapsed #dashboard-content {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        /* KPI Status Section */
+        .kpi-section {
+            border-top: 1px solid rgba(209, 213, 219, 0.5);
+            padding-top: 12px;
+            margin-top: 8px;
+        }
+        
+        .kpi-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .kpi-header h5 {
+            margin: 0;
+            font-size: 14px;
+            color: #374151;
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-badge.excellent {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+        }
+        
+        .status-badge.good {
+            background: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+        }
+        
+        .status-badge.warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: #f59e0b;
+        }
+        
+        .status-badge.critical {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+        
+        .kpi-details {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 4px;
+        }
+        
+        .kpi-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            padding: 2px 0;
+        }
+        
+        .kpi-item .kpi-label {
+            color: #6b7280;
+        }
+        
+        .kpi-item .kpi-status {
+            font-size: 14px;
+        }
+
+        /* Deep Check Section */
+        .deep-check-section {
+            border-top: 1px solid rgba(209, 213, 219, 0.5);
+            padding-top: 12px;
+            margin-top: 8px;
+        }
+        
+        .deep-check-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .deep-check-header h5 {
+            margin: 0;
+            font-size: 14px;
+            color: #374151;
+        }
+        
+        .deep-check-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        
+        .deep-check-button:hover {
+            background: #2563eb;
+        }
+        
+        .deep-check-button:disabled {
+            background: #6b7280;
+            cursor: not-allowed;
+        }
+        
+        .deep-check-results {
+            margin-top: 8px;
+            max-height: 400px; /* 詳細チェック結果の最大高さを制限 */
+            overflow-y: auto; /* コンテンツがオーバーフローした場合にスクロールバーを表示 */
+            padding-bottom: 8px; /* 下部にスペースを確保 */
+            scrollbar-width: thin; /* Firefox */
+            scrollbar-color: rgba(0,0,0,0.2) transparent; /* Firefox */
+        }
+        
+        /* Webkitスクロールバーのスタイル */
+        #monitoring-dashboard::-webkit-scrollbar,
+        .deep-check-results::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #monitoring-dashboard::-webkit-scrollbar-track,
+        .deep-check-results::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        #monitoring-dashboard::-webkit-scrollbar-thumb,
+        .deep-check-results::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.2);
+            border-radius: 3px;
+        }
+        
+        #monitoring-dashboard::-webkit-scrollbar-thumb:hover,
+        .deep-check-results::-webkit-scrollbar-thumb:hover {
+            background: rgba(0,0,0,0.3);
+        }
+        
+        .check-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            margin-bottom: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        
+        .check-status {
+            font-weight: 500;
+        }
+        
+        .check-status.success { color: #059669; }
+        .check-status.warning { color: #d97706; }
+        .check-status.error { color: #dc2626; }
+        
+        .overall-status {
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        
+        .overall-status.excellent { border-left: 4px solid #10b981; }
+        .overall-status.good { border-left: 4px solid #f59e0b; }
+        .overall-status.poor { border-left: 4px solid #ef4444; }
+        
+    </style>
+</head>
+<body>
+    <!-- Monitoring Dashboard -->
+    <div id="monitoring-dashboard" class="collapsed">
+        <div id="dashboard-toggle">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm11.378-3.917c-.882-.416-1.859-.416-2.74 0l-1.042.492a.75.75 0 00-.374.649v1.042a3 3 0 00.957 2.143l.254.255a.75.75 0 001.06 0l.255-.255a3 3 0 00.957-2.143v-1.042a.75.75 0 00-.374-.65l-1.042-.492z" clip-rule="evenodd" />
+                <path d="M12 15a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0112 15zm3.75-4.5a.75.75 0 000-1.5h-1.5a.75.75 0 000 1.5h1.5zm-7.5 0a.75.75 0 000-1.5h-1.5a.75.75 0 000 1.5h1.5z" />
+            </svg>
+        </div>
+        <div id="dashboard-content">
+            <div class="dashboard-header">
+                <h4>System Monitor</h4>
+                <span id="last-updated">--:--:--</span>
+            </div>
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-title">ヘルスチェック</div>
+                    <div class="kpi-value"><span id="kpi-health-time">--</span>ms</div>
+                    <div class="kpi-target">目標: &lt;50ms</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-title">推奨API</div>
+                    <div class="kpi-value"><span id="kpi-recommendation-time">--</span>s</div>
+                    <div class="kpi-target">目標: &lt;2s</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-title">キャッシュヒット率</div>
+                    <div class="kpi-value"><span id="kpi-cache-rate">--</span>%</div>
+                    <div class="kpi-target">目標: &gt;80%</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-title">データ同期</div>
+                    <div class="kpi-status" id="kpi-sync-status" data-status="offline">無効</div>
+                    <div class="kpi-target">目標: &lt;30s/バッチ</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-title">アプリ可用性</div>
+                    <div class="kpi-value"><span id="kpi-availability">--</span>%</div>
+                    <div class="kpi-target">目標: &gt;99.5%</div>
+                </div>
+            </div>
+            
+            <!-- KPI Status Section -->
+            <div class="kpi-section">
+                <div class="kpi-header">
+                    <h5>KPIステータス</h5>
+                    <span id="kpi-status-badge" class="status-badge excellent">優秀</span>
+                </div>
+                <div id="kpi-details" class="kpi-details">
+                    <!-- KPI details will be populated here -->
+                </div>
+            </div>
+            
+            <!-- Deep Check Section -->
+            <div class="deep-check-section">
+                <div class="deep-check-header">
+                    <h5>詳細チェック</h5>
+                    <button id="deep-check-btn" class="deep-check-button">
+                        <span class="btn-text">チェック開始</span>
+                        <span class="btn-spinner" style="display: none;">🔄</span>
+                    </button>
+                </div>
+                <div id="deep-check-results" class="deep-check-results" style="display: none;">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="phone-container">
+        <!-- Toast notification container -->
+        <div class="toast-container">
+            <div class="toast" id="toast-notification"></div>
+        </div>
+        
+        <!-- Loading overlay for regeneration -->
+        <div class="regeneration-loading" id="regeneration-loading">
+            <div class="spinner"></div>
+            <div class="loading-text">
+                <div>新しい提案を生成中...</div>
+                <small style="color: #999; margin-top: 5px; display: block;">しばらくお待ちください</small>
+            </div>
+        </div>
+        
+        <div class="screen" id="screen">
+            <!-- Section 1: Wallet -->
+            <section id="wallet-section" class="page-section">
+                <div class="wallet-header">
+                    <div class="user-icon" id="user-icon">👤</div>
+                    <ul class="user-dropdown" id="user-dropdown">
+                        <!-- User IDs will be populated by JS -->
+                    </ul>
+                </div>
+
+                <!-- Balance display overlay -->
+                <div id="balance-overlay-container">
+                    <span id="balance-overlay-value">¥ ----</span>
+                </div>
+
+                <div id="increase-assets-btn-container">
+                     <button class="btn btn-mercari" id="btn-increase-assets">資産を増やす</button>
+                </div>
+                <img class="under-bar" src="image/underbar_fixed.png" alt="Under Bar">
+            </section>
+
+            <!-- Section 2: Asset Analysis -->
+            <section id="analysis-section" class="page-section" style="display: none;">
+                <img class="upper-bar" src="image/upperbar_fixed.png" alt="Upper Bar">
+                <h2 class="section-title">資産ポートフォリオ</h2>
+                <div class="page-content-scrollable">
+                    <div class="card-custom">
+                         <canvas id="pieChart"></canvas>
+                    </div>
+                    <div class="card-custom">
+                        <h5 class="card-title">AIによる資産分析</h5>
+                        <div class="analysis-text" id="analysis-display">分析結果はここに表示されます...</div>
+                    </div>
+                </div>
+                <div class="loading-spinner" id="analysis-loader"></div>
+                <div class="mt-auto pb-3">
+                    <button class="btn-analysis-page" id="btn-show-recommendations">具体的な方法をみる</button>
+                </div>
+                <img class="under-bar" src="image/underbar_fixed.png" alt="Under Bar">
+            </section>
+
+            <!-- Section 3: Agent Recommendations -->
+            <section id="agents-section" class="page-section" style="display: none;">
+                <img class="upper-bar" src="image/upperbar_fixed.png" alt="Upper Bar">
+                <h2 class="section-title">AIからのアドバイス</h2>
+                
+                <!-- New Navigation Bar Container -->
+                <div class="agent-nav-container">
+                    <nav id="agent-nav" class="agent-nav"></nav>
+                </div>
+
+                <div id="recommendations-list" class="page-content-scrollable">
+                    <!-- Agent pages will be dynamically inserted here -->
+                </div>
+                
+                <div class="loading-spinner" id="agents-loader"></div>
+                 <div class="mt-auto pb-3">
+                    <button class="btn-analysis-page" id="btn-generate-summary" disabled>選択したアドバイスで未来を予測</button>
+                </div>
+
+                <!-- Reject with Reason Modal (MOVED INSIDE agents-section) -->
+                <div class="modal" id="reject-reason-modal" style="display: none;">
+                  <div class="modal-dialog">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <h5 class="modal-title">提案を拒否する理由</h5>
+                        <button type="button" class="close-modal-btn">&times;</button>
+                      </div>
+                      <div class="modal-body">
+                        <p class="modal-subtitle">ご理由に基づき、新しい提案を作成するか、今後の参考にさせていただきます。</p>
+                        <div class="list-group">
+                          <label class="list-group-item">
+                            <input class="form-check-input me-1" type="radio" name="rejectionReason" value="TOO_COMPLEX">
+                            提案が複雑・面倒
+                          </label>
+                          <label class="list-group-item">
+                            <input class="form-check-input me-1" type="radio" name="rejectionReason" value="HIGH_RISK">
+                            リスクが高い
+                          </label>
+                          <label class="list-group-item">
+                            <input class="form-check-input me-1" type="radio" name="rejectionReason" value="NOT_INTERESTED">
+                            興味がない
+                          </label>
+                          <label class="list-group-item">
+                            <input class="form-check-input me-1" type="radio" name="rejectionReason" value="OTHER">
+                            その他
+                          </label>
+                        </div>
+                        <div id="custom-reason-container" style="display: none; margin-top: 15px;">
+                          <label for="customReasonInput" class="form-label">詳細な理由をお聞かせください：</label>
+                          <textarea id="customReasonInput" class="form-control" rows="3" placeholder="例：もっと短期間で効果が出る方法が良い"></textarea>
+                        </div>
+                        <div id="modal-error-message" class="modal-error-message" style="display: none;"></div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="cancel-rejection">キャンセル</button>
+                        <button type="button" class="btn btn-primary" id="submit-rejection-reason">送信</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <img class="under-bar" src="image/underbar_fixed.png" alt="Under Bar">
+            </section>
+
+            <!-- Section 4: Summary & Prediction -->
+            <section id="summary-section" class="page-section" style="display: none;">
+                <img class="upper-bar" src="image/upperbar_fixed.png" alt="Upper Bar">
+                <h2 class="section-title">最終提案と増資予測</h2>
+                <div class="page-content-scrollable">
+                    <div class="card-custom">
+                        <h5 class="card-title">AIの最終コメント</h5>
+                        <div id="comprehensive-summary" class="analysis-text">最終的な提案はここに表示されます...</div>
+                    </div>
+                    <div class="card-custom">
+                        <h5 class="card-title">予測される資産増加</h5>
+                        <canvas id="barChart"></canvas>
+                    </div>
+                </div>
+                 <div class="loading-spinner" id="summary-loader"></div>
+                 <div class="mt-auto pb-3">
+                    <button class="btn-analysis-page" id="btn-show-tasks">タスクをみる</button>
+                </div>
+                 <img class="under-bar" src="image/underbar_fixed.png" alt="Under Bar">
+            </section>
+
+            <!-- Section 5: Tasks -->
+            <section id="tasks-section" class="page-section" style="display: none;">
+                <img class="upper-bar" src="image/upperbar_fixed.png" alt="Upper Bar">
+                <h2 class="section-title">今月のタスク</h2>
+                <p class="text-center text-muted mb-3">予測を達成するための具体的なタスクリストです。</p>
+                <div id="tasks-list" class="page-content-scrollable"></div>
+                <div class="loading-spinner" id="tasks-loader"></div>
+                <!-- FAB is now inside the tasks section -->
+                <div class="floating-btn" id="fab">増資<br>分析</div>
+                <img class="under-bar" src="image/underbar_fixed.png" alt="Under Bar">
+            </section>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const API_BASE_URL = '/api/v1';
+
+            const state = {
+                userId: '',
+                recommendations: [],
+                // This will now store detailed feedback status for the session
+                sessionFeedback: {}, 
+                pieChartInstance: null,
+                barChartInstance: null,
+                portfolio: null, // Store portfolio data
+                // Store context for regeneration
+                recommendationContexts: {},
+            };
+
+            const screen = document.getElementById('screen');
+            const sections = {
+                wallet: document.getElementById('wallet-section'),
+                analysis: document.getElementById('analysis-section'),
+                agents: document.getElementById('agents-section'),
+                summary: document.getElementById('summary-section'),
+                tasks: document.getElementById('tasks-section'),
+            };
+            const fab = document.getElementById('fab');
+            // const fabContainer = document.getElementById('fab-container'); // No longer needed
+            
+            // Initialize Communication Layer using global configuration
+            const config = window.SavingAdvisorConfig?.manager?.getFullConfig() || {};
+            const communicationLayer = new CommunicationLayer({ 
+                protocol: config.communication?.protocol || 'rest',
+                restBaseUrl: config.communication?.endpoints?.rest?.baseUrl || '/api/v1'
+            });
+
+            const scrollToSection = (sectionId) => {
+                const section = sections[sectionId];
+                if (section) {
+                    section.style.display = 'flex';
+                    // This method works for both vertical and horizontal scrolling
+                    section.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+                }
+            };
+            
+            const showLoader = (loaderId, show) => {
+                document.getElementById(loaderId).style.display = show ? 'block' : 'none';
+            }
+
+            const apiCall = async (endpoint, method = 'GET', body = null) => {
+                // state.userId is now set by dropdown, not input field.
+                if (!state.userId) {
+                    showToast('ユーザーを選択してください。', 'error');
+                    return Promise.reject(new Error('User ID not selected'));
+                }
+                const url = `${API_BASE_URL}${endpoint.replace('{user_id}', state.userId)}`;
+                
+                try {
+                    const options = {
+                        method,
+                        headers: { 'Content-Type': 'application/json' },
+                        ...(body && { body: JSON.stringify(body) }),
+                    };
+                    const response = await fetch(url, options);
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`HTTP ${response.status}: ${errorData.detail || response.statusText}`);
+                    }
+                    // For 204 No Content, there is no body to parse
+                    if (response.status === 204) {
+                        return null;
+                    }
+                    return await response.json();
+                } catch (error) {
+                    console.error(`API Error on ${method} ${url}:`, error);
+                    alert(`エラーが発生しました: ${error.message}`);
+                    throw error;
+                }
+            };
+
+            // --- Flow Control ---
+
+            const updateBalanceDisplay = (portfolio) => {
+                if (!portfolio) return;
+                state.portfolio = portfolio;
+
+                // Use Japanese asset type names as returned by the backend
+                const pointsAsset = portfolio.assets.find(asset => asset.asset_type === 'ポイント');
+                const earningsAsset = portfolio.assets.find(asset => asset.asset_type === '売上金・給与・報酬');
+
+                const pointsValue = pointsAsset ? pointsAsset.current_value : 0;
+                const earningsValue = earningsAsset ? earningsAsset.current_value : 0;
+                
+                const totalValue = pointsValue + earningsValue;
+
+                document.getElementById('balance-overlay-value').textContent = `¥${totalValue.toLocaleString()}`;
+            };
+
+            const fetchBalance = async () => {
+                if (!state.userId) {
+                    console.log("No user ID selected, skipping balance fetch.");
+                    return;
+                }
+                try {
+                    const response = await apiCall('/assets/portfolio/{user_id}');
+                    const portfolio = response.portfolio;  // 提取嵌套的portfolio对象
+                    updateBalanceDisplay(portfolio);
+                    return portfolio;
+                } catch (e) {
+                    // Reset display on error
+                    document.getElementById('balance-overlay-value').textContent = '¥ ----';
+                    state.portfolio = null;
+                    throw e; 
+                }
+            };
+
+            // NEW: Setup for user dropdown
+            const userIcon = document.getElementById('user-icon');
+            const userDropdown = document.getElementById('user-dropdown');
+            
+            for (let i = 1001; i <= 1010; i++) {
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.href = '#';
+                a.textContent = `User ${i}`;
+                a.dataset.userId = i;
+                li.appendChild(a);
+                userDropdown.appendChild(li);
+            }
+
+            userIcon.addEventListener('click', () => {
+                userDropdown.style.display = userDropdown.style.display === 'block' ? 'none' : 'block';
+            });
+
+            userDropdown.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (e.target.tagName === 'A') {
+                    const selectedUserId = e.target.dataset.userId;
+                    state.userId = selectedUserId;
+                    userIcon.textContent = selectedUserId.slice(-2); // Show last 2 digits on icon
+                    console.log(`User selected: ${state.userId}`);
+                    userDropdown.style.display = 'none';
+                    // Reset session feedback when user changes
+                    state.sessionFeedback = {}; 
+                    // Fetch balance immediately on user selection
+                    fetchBalance().then(() => {
+                        showToast(`ユーザー ${state.userId} が選択されました`, 'success');
+                    }).catch(() => {
+                         showToast(`ユーザー ${state.userId} の情報取得に失敗しました`, 'error');
+                    });
+                }
+            });
+
+            // Hide dropdown if clicked outside
+            document.addEventListener('click', (e) => {
+                if (!userIcon.contains(e.target) && !userDropdown.contains(e.target)) {
+                    userDropdown.style.display = 'none';
+                }
+            });
+
+
+            // 1. Wallet -> Analysis
+            document.getElementById('btn-increase-assets').addEventListener('click', async () => {
+                if (!state.userId) {
+                    showToast('まずユーザーを選択してください。', 'error');
+                    return;
+                }
+
+                if (!state.portfolio) {
+                    try {
+                        await fetchBalance();
+                    } catch (e) {
+                        return; // Stop if fetching balance fails
+                    }
+                }
+
+                scrollToSection('analysis');
+                showLoader('analysis-loader', true);
+
+                try {
+                    const pieData = await communicationLayer.getVisualizationData(state.userId, 'pie');
+                    renderPieChart(pieData);
+
+                    const analysisText = await communicationLayer.getUserAnalysis(state.userId);
+                    document.getElementById('analysis-display').textContent = analysisText;
+
+                } catch (e) {
+                    console.error('Error fetching analysis data:', e);
+                    showToast(`分析データの取得中にエラーが発生しました: ${e.message}`, 'error');
+                } finally {
+                    showLoader('analysis-loader', false);
+                }
+            });
+
+
+            // 2. Analysis -> Agents
+            document.getElementById('btn-show-recommendations').addEventListener('click', async () => {
+                scrollToSection('agents');
+                showLoader('agents-loader', true);
+                
+                try {
+                    const data = await communicationLayer.getRecommendationsPreview(state.userId);
+                    console.log('Received data for preview:', data);
+                    // FIX: Check for the correct field 'analyses' and handle the empty case
+                    if (data && data.analyses) {
+                        if (data.analyses.length > 0) {
+                            state.recommendations = data.analyses;
+                            renderRecommendations(state.recommendations);
+                            document.getElementById('btn-generate-summary').disabled = false;
+                        } else {
+                            // Display the overall assessment message when no specific analyses are available
+                            const contentEl = document.getElementById('recommendations-list');
+                            contentEl.innerHTML = `<div class="agent-findings-summary"><p>${data.overall_assessment}</p></div>`;
+                            document.getElementById('agent-nav').innerHTML = ''; // Clear nav
+                            document.getElementById('btn-generate-summary').disabled = true;
+                        }
+                    } else {
+                        console.error('Invalid data structure for preview:', data);
+                        const contentEl = document.getElementById('recommendations-list');
+                        contentEl.innerHTML = `<div class="agent-findings-summary"><p>AIからのアドバイスの取得に失敗しました。</p></div>`;
+                    }
+                } catch (e) { 
+                    console.error('Failed to fetch recommendations:', e);
+                } finally {
+                     showLoader('agents-loader', false);
+                }
+            });
+
+
+            // 3. Agents -> Summary
+            document.getElementById('btn-generate-summary').addEventListener('click', async () => {
+                // Collect all feedback from the current session
+                const finalFeedback = {};
+                for (const [recId, context] of Object.entries(state.sessionFeedback)) {
+                    finalFeedback[recId] = {
+                        title: context.title,
+                        status: context.status,
+                        rejection_reason: context.rejection_reason || null
+                    };
+                }
+
+                scrollToSection('summary');
+                showLoader('summary-loader', true);
+
+                try {
+                    // Finalize the session with the collected feedback
+                    await communicationLayer.finalizeSession({
+                        user_id: state.userId,
+                        feedback: finalFeedback,
+                        // We need to pass the original session data as well
+                        // Assuming the initial analysis response is stored somewhere accessible
+                        // For now, let's mock this part of the payload.
+                        // In a real app, the session_id or the full analysis response would be stored in `state`.
+                        session_type: "comprehensive_analysis",
+                        input_data: state.portfolio,
+                        ai_response: state.recommendations,
+                        processing_time_ms: 1500 // Mock value
+                    });
+
+                    // The rest of the logic for generating the summary remains the same
+                    // but we no longer need to collect accepted IDs from checkboxes.
+                    const acceptedRecsForSummary = Object.entries(state.sessionFeedback)
+                        .filter(([_, feedback]) => feedback.status === 'accepted')
+                        .map(([recId, _]) => recId);
+                    
+                    console.log('現在のsessionFeedbackの状態:', state.sessionFeedback);
+                    console.log('承認された提案:', acceptedRecsForSummary);
+                    
+                    if (acceptedRecsForSummary.length === 0) {
+                        alert('少なくとも1つのアドバイスを選択してください。');
+                        showLoader('summary-loader', false);
+                        return;
+                    }
+
+                    const summaryData = await communicationLayer.getComprehensiveAnalysis(
+                        state.userId,
+                        acceptedRecsForSummary
+                    );
+                    document.getElementById('comprehensive-summary').textContent = summaryData.comprehensive_summary;
+
+                    // For Bar Chart
+                    const initialAssets = summaryData.initial_assets;
+                    const predictedAssets = summaryData.predicted_assets;
+                    renderBarChart(initialAssets, predictedAssets);
+                    
+                } catch(e) { /* silent fail */ }
+                finally {
+                    showLoader('summary-loader', false);
+                }
+            });
+
+            // 4. Summary -> Tasks
+            document.getElementById('btn-show-tasks').addEventListener('click', async () => {
+                scrollToSection('tasks');
+                showLoader('tasks-loader', true);
+                
+                try {
+                    const acceptedRecs = Object.entries(state.sessionFeedback)
+                        .filter(([_, feedback]) => feedback.status === 'accepted')
+                        .map(([recId, _]) => recId);
+
+                    if (acceptedRecs.length === 0) {
+                         showToast('タスクを生成するには、少なくとも1つのアドバイスを承認する必要があります。', 'error');
+                         scrollToSection('summary'); // Stay on summary page
+                         return;
+                    }
+
+                    const data = await communicationLayer.getUserTasks(state.userId, acceptedRecs);
+                    renderTasks(data.tasks);
+                } catch (e) { /* silent fail */ }
+                finally {
+                    showLoader('tasks-loader', false);
+                }
+            });
+            
+            // 5. FAB -> Summary
+            fab.addEventListener('click', () => scrollToSection('summary'));
+
+
+            // --- Render Functions ---
+
+            const renderPieChart = (data) => {
+                const ctx = document.getElementById('pieChart').getContext('2d');
+                if (state.pieChartInstance) state.pieChartInstance.destroy();
+                
+                const labels = Object.keys(data.asset_breakdown);
+                const values = Object.values(data.asset_breakdown);
+                const colors = ['#0d6efd', '#6610f2', '#d63384', '#fd7e14', '#ffc107', '#198754', '#20c997'];
+                
+                state.pieChartInstance = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels,
+                        datasets: [{ data: values, backgroundColor: colors }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: { display: true, text: `総資産: ¥${data.total_value.toLocaleString()}` },
+                            legend: { position: 'bottom' }
+                        }
+                    }
+                });
+            };
+            
+            const renderBarChart = (initial, predicted) => {
+                const ctx = document.getElementById('barChart').getContext('2d');
+                if (state.barChartInstance) state.barChartInstance.destroy();
+
+                const gain = predicted - initial;
+
+                state.barChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['資産'],
+                        datasets: [
+                            {
+                                label: '現在の資産',
+                                data: [initial],
+                                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: '予測される増加分',
+                                data: [gain],
+                                backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        scales: {
+                            x: { stacked: true },
+                            y: { stacked: true }
+                        },
+                        responsive: true,
+                        plugins: {
+                            legend: { position: 'top' },
+                            title: { display: true, text: `資産増加予測: +¥${gain.toLocaleString()}` }
+                        }
+                    }
+                });
+            };
+
+            const assetTypeMap = {
+                'ポイント': 'ポイント',
+                '売上金・給与・報酬': '売上金・給与・報酬',
+                'モノ': 'モノ',
+                'ギガ': 'ギガ',
+                'ステーブルコイン': 'ステーブルコイン'
+            };
+            const getAssetTypeName = (type) => assetTypeMap[type] || type;
+
+            const renderRecommendations = (recs) => {
+                // Define the fixed order of asset types
+                const assetOrder = [
+                    '売上金・給与・報酬',
+                    'ポイント',
+                    'モノ',
+                    'ギガ',
+                    'ステーブルコイン'
+                ];
+
+                const assetShortNameMap = {
+                    '売上金・給与・報酬': '売上金',
+                    'ポイント': 'ポイント',
+                    'モノ': 'モノ',
+                    'ギガ': 'ギガ',
+                    'ステーブルコイン': 'コイン'
+                };
+                
+                // Sort the recommendations based on the fixed order
+                const sortedRecs = recs.sort((a, b) => {
+                    return assetOrder.indexOf(a.asset_type) - assetOrder.indexOf(b.asset_type);
+                });
+
+                const navEl = document.getElementById('agent-nav');
+                const contentEl = document.getElementById('recommendations-list');
+                
+                if (!navEl || !contentEl) {
+                    console.error('Navigation or content element not found');
+                    return;
+                }
+
+                let navHtml = '';
+                let contentHtml = '';
+
+                sortedRecs.forEach((analysis, index) => {
+                    const assetTypeKey = analysis.asset_type.replace(/[・\s]/g, ''); // Create a simple key for IDs
+                    const isActive = index === 0;
+
+                    // Generate Nav Link
+                    navHtml += `
+                        <button class="agent-nav-link ${isActive ? 'active' : ''}" data-target-page="page-${assetTypeKey}">
+                            ${assetShortNameMap[analysis.asset_type] || analysis.asset_type}
+                        </button>
+                    `;
+
+                    // Generate Page Content
+                    let recommendationsHtml = '';
+                    if (analysis.recommendations) {
+                        analysis.recommendations.forEach((rec, i) => {
+                            // Generate a consistent and unique ID for each recommendation
+                            const recommendation_id = `${state.userId}_${analysis.agent_name}_${assetTypeKey}_${i}`;
+                            
+                            // Store context for potential regeneration
+                            state.recommendationContexts[recommendation_id] = {
+                                original_recommendation: rec,
+                                agent_name: analysis.agent_name,
+                                portfolio_context: state.portfolio, // Assuming state.portfolio holds the necessary context
+                            };
+
+                            recommendationsHtml += `
+                                <div class="recommendation-item" id="rec-item-${recommendation_id}">
+                                    <div class="recommendation-content">
+                                        <div class="recommendation-title">${rec.title}</div>
+                                        <div class="recommendation-description">${rec.description}</div>
+                                        <div class="recommendation-gain">予測: ¥${Math.round(rec.potential_gain)}</div>
+                                    </div>
+                                    <div class="feedback-buttons" data-recommendation-id="${recommendation_id}">
+                                        <button class="btn btn-sm btn-success feedback-btn" data-feedback="accepted">承認</button>
+                                        <button class="btn btn-sm btn-danger feedback-btn" data-feedback="rejected" data-reason-required="false">今はしない</button>
+                                        <button class="btn btn-sm btn-primary feedback-btn" data-feedback="rejected" data-reason-required="true">再生成</button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                    
+                    contentHtml += `
+                        <div id="page-${assetTypeKey}" class="agent-page ${isActive ? 'active' : ''}">
+                            <div class="agent-findings-summary">
+                                <p>${analysis.findings}</p>
+                            </div>
+                            <div class="recommendation-list-container">
+                                ${recommendationsHtml}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                navEl.innerHTML = navHtml;
+                contentEl.innerHTML = contentHtml;
+
+                // --- Event Delegation for Feedback Buttons ---
+                contentEl.addEventListener('click', function(event) {
+                    const target = event.target;
+                    const feedbackBtn = target.closest('.feedback-btn');
+
+                    if (feedbackBtn) {
+                        const recommendationId = feedbackBtn.parentElement.dataset.recommendationId;
+                        const status = feedbackBtn.dataset.feedback;
+                        const reasonRequired = feedbackBtn.dataset.reasonRequired === 'true';
+                        
+                        if (status === 'accepted') {
+                            handleFeedback(recommendationId, 'accepted');
+                        } else if (status === 'rejected') {
+                            if (reasonRequired) {
+                                showRejectModal(recommendationId);
+                            } else {
+                                // For a simple "Reject", we'll use a default reason internally
+                                handleFeedback(recommendationId, 'rejected', 'OTHER');
+                            }
+                        }
+                    }
+                });
+                
+                // Add event listeners for the new nav links
+                document.querySelectorAll('.agent-nav-link').forEach(link => {
+                    link.addEventListener('click', () => {
+                        // Remove active class from all links and pages
+                        document.querySelectorAll('.agent-nav-link').forEach(l => l.classList.remove('active'));
+                        document.querySelectorAll('.agent-page').forEach(p => p.classList.remove('active'));
+
+                        // Add active class to clicked link and target page
+                        link.classList.add('active');
+                        const targetPageId = link.getAttribute('data-target-page');
+                        document.getElementById(targetPageId).classList.add('active');
+                    });
+                });
+            };
+            
+            // --- New Feedback Handling Functions ---
+            
+            const rejectModalEl = document.getElementById('reject-reason-modal');
+            
+            // Custom mobile modal functions
+            const showRejectModal = (recommendationId) => {
+                // Store the recommendation ID on the modal's submit button
+                const submitBtn = document.getElementById('submit-rejection-reason');
+                submitBtn.dataset.recommendationId = recommendationId;
+                
+                // Reset form
+                document.querySelectorAll('input[name="rejectionReason"]').forEach(radio => radio.checked = false);
+                document.getElementById('customReasonInput').value = '';
+                document.getElementById('custom-reason-container').style.display = 'none';
+                hideModalError(); // Hide any previous error messages
+                
+                state.rejectionPayload = { // Store payload for submission
+                    user_id: state.userId,
+                    recommendation_id: recommendationId,
+                    agent_name: state.recommendationContexts[recommendationId].agent_name
+                };
+
+                // Show modal with mobile animation
+                rejectModalEl.style.display = 'block';
+                setTimeout(() => {
+                    rejectModalEl.classList.add('show');
+                }, 10);
+            };
+            
+            const hideRejectModal = () => {
+                rejectModalEl.classList.remove('show');
+                setTimeout(() => {
+                    rejectModalEl.style.display = 'none';
+                }, 300);
+            };
+            
+            // Close modal when clicking outside or on close button
+            rejectModalEl.addEventListener('click', (e) => {
+                if (e.target === rejectModalEl) {
+                    hideRejectModal();
+                }
+            });
+            
+            document.querySelector('.close-modal-btn').addEventListener('click', hideRejectModal);
+            document.getElementById('cancel-rejection').addEventListener('click', hideRejectModal);
+            
+            // Show/hide loading spinner
+            const showLoadingSpinner = () => {
+                document.getElementById('regeneration-loading').style.display = 'flex';
+            };
+            
+            const hideLoadingSpinner = () => {
+                document.getElementById('regeneration-loading').style.display = 'none';
+            };
+            
+            // Show/hide modal error message
+            const showModalError = (message) => {
+                const errorEl = document.getElementById('modal-error-message');
+                errorEl.textContent = message;
+                errorEl.style.display = 'block';
+            };
+            
+            const hideModalError = () => {
+                const errorEl = document.getElementById('modal-error-message');
+                errorEl.style.display = 'none';
+            };
+            
+            // Show toast notification
+            const showToast = (message, type = 'success') => {
+                const toast = document.getElementById('toast-notification');
+                toast.textContent = message;
+                toast.className = `toast ${type}`;
+                toast.classList.add('show');
+                
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+            };
+
+            // Event listener for "その他" option to show/hide custom reason input
+            document.querySelectorAll('input[name="rejectionReason"]').forEach(radio => {
+                radio.addEventListener('change', () => {
+                    const customReasonContainer = document.getElementById('custom-reason-container');
+                    if (radio.value === 'OTHER' && radio.checked) {
+                        customReasonContainer.style.display = 'block';
+                    } else {
+                        customReasonContainer.style.display = 'none';
+                    }
+                });
+            });
+
+            // Event listener for modal submit
+            document.getElementById('submit-rejection-reason').addEventListener('click', async () => {
+                hideModalError(); // Clear any previous error messages
+                
+                const payload = state.rejectionPayload;
+                const selectedReasonRadio = document.querySelector('input[name="rejectionReason"]:checked');
+                if (!selectedReasonRadio) {
+                    showModalError('理由を選択してください。');
+                    return;
+                }
+
+                let selectedReason = selectedReasonRadio.value;
+                payload.rejection_reason = selectedReason;
+                
+                // Handle custom reason for "その他" option
+                if (selectedReason === 'OTHER') {
+                    const customReasonInput = document.getElementById('customReasonInput');
+                    if (!customReasonInput.value.trim()) {
+                        showModalError('詳細な理由を入力してください。');
+                        return;
+                    }
+                    payload.rejection_detail = customReasonInput.value.trim();
+                }
+
+                // Close modal and show loading
+                hideRejectModal();
+                showLoadingSpinner();
+
+                // Attempt to regenerate without changing UI state
+                try {
+                    const newRecommendationData = await communicationLayer.regenerateRecommendation(payload);
+
+                    if (newRecommendationData && newRecommendationData.title) {
+                        // Successfully regenerated, replace content but keep buttons functional
+                        updateRecommendationUI(payload.recommendation_id, { newRecommendation: newRecommendationData });
+                        // Show success message briefly
+                        setTimeout(() => {
+                            showToast('新しい提案を生成しました。', 'success');
+                        }, 500);
+                    } else {
+                        showToast('ご要望を満たす提案を現時点で見つけることができませんでした。', 'error');
+                    }
+                } catch (error) {
+                    console.error('Regeneration API failed:', error);
+                    showToast('提案の再生成中にエラーが発生しました。', 'error');
+                } finally {
+                    hideLoadingSpinner();
+                }
+            });
+
+            const handleFeedback = async (recommendationId, status, rejectionReason = null) => {
+                const payload = {
+                    recommendation_id: recommendationId,
+                    user_id: state.userId,
+                    status: status,
+                    rejection_reason: rejectionReason,
+                };
+                
+                try {
+                    await communicationLayer.submitRecommendationFeedback(payload);
+                    updateRecommendationUI(recommendationId, { status });
+                } catch (e) {
+                    console.error('Failed to submit feedback', e);
+                }
+            };
+            
+            const updateRecommendationUI = (recommendationId, update) => {
+                const recItem = document.getElementById(`rec-item-${recommendationId}`);
+                if (!recItem) return;
+
+                if (update.newRecommendation) {
+                    // Replace with new recommendation
+                    const newRec = update.newRecommendation;
+                    recItem.querySelector('.recommendation-title').textContent = newRec.title;
+                    recItem.querySelector('.recommendation-description').textContent = newRec.description;
+                    recItem.querySelector('.recommendation-gain').textContent = `予測: ¥${Math.round(newRec.potential_gain)}`;
+                    // Also update the stored context
+                    state.recommendationContexts[recommendationId].original_recommendation = newRec;
+                } else if (update.status) {
+                    // Update feedback status in sessionFeedback state
+                    if (!state.sessionFeedback[recommendationId]) {
+                        // Initialize if doesn't exist
+                        const titleElement = recItem.querySelector('.recommendation-title');
+                        state.sessionFeedback[recommendationId] = {
+                            title: titleElement ? titleElement.textContent : '',
+                            status: update.status
+                        };
+                    } else {
+                        // Update existing status
+                        state.sessionFeedback[recommendationId].status = update.status;
+                    }
+                    
+                    console.log(`提案ステータスの更新: ${recommendationId} -> ${update.status}`);
+                    console.log('現在のsessionFeedback:', state.sessionFeedback);
+                    
+                    // Update UI
+                    const buttonContainer = recItem.querySelector('.feedback-buttons');
+                    let statusHtml = '';
+                    if (update.status === 'accepted') {
+                        statusHtml = '<div class="feedback-status status-accepted">承認済み</div>';
+                    } else if (update.status === 'rejected') {
+                        statusHtml = '<div class="feedback-status status-rejected">拒否済み</div>';
+                    }
+                    buttonContainer.innerHTML = statusHtml;
+                }
+            };
+
+
+            const renderTasks = (tasks) => {
+                const listEl = document.getElementById('tasks-list');
+                if (!tasks || tasks.length === 0) {
+                    listEl.innerHTML = '<div class="text-center p-3">タスクはありません。</div>';
+                    return;
+                }
+                listEl.innerHTML = tasks.map(task => `
+                    <div class="card-custom">
+                        <strong>${task.title}</strong>
+                        <p class="small text-muted mb-1">締切: ${new Date(task.due_date).toLocaleDateString()}</p>
+                        <span class="badge bg-primary">報酬: ¥${task.completion_reward.toLocaleString()}</span>
+                    </div>
+                `).join('');
+            };
+
+        });
+    </script>
+    
+    <!-- Monitoring Dashboard JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const dashboard = document.getElementById('monitoring-dashboard');
+            const toggleButton = document.getElementById('dashboard-toggle');
+
+            // Toggle dashboard visibility
+            toggleButton.addEventListener('click', () => {
+                dashboard.classList.toggle('collapsed');
+            });
+
+            // --- SSE Connection ---
+            const eventSource = new EventSource('/api/v1/monitoring/status-stream');
+
+            eventSource.onopen = () => {
+                console.log('Monitoring connection established.');
+            };
+
+            eventSource.onerror = (err) => {
+                console.error('Monitoring SSE error:', err);
+                // Update UI to show disconnected state
+                document.getElementById('last-updated').textContent = 'Disconnected';
+            };
+
+            eventSource.addEventListener('update', (event) => {
+                const data = JSON.parse(event.data);
+                updateDashboardUI(data);
+            });
+
+            // --- UI Update Functions ---
+            function updateDashboardUI(data) {
+                // Update timestamp
+                const now = new Date(data.timestamp);
+                document.getElementById('last-updated').textContent = now.toLocaleTimeString();
+
+                // Update business KPIs
+                if (data.business_kpis) {
+                    updateBusinessKPIs(data.business_kpis);
+                }
+            }
+
+            function updateBusinessKPIs(businessKpis) {
+                // Update Health Check KPI
+                const healthKpi = businessKpis.health_check;
+                if (healthKpi && healthKpi.response_time_ms !== undefined) {
+                    document.getElementById('kpi-health-time').textContent = healthKpi.response_time_ms;
+                    updateKPICard('health', healthKpi.status);
+                }
+                
+                // Update Recommendation API KPI
+                const recommendationKpi = businessKpis.recommendation_api;
+                if (recommendationKpi && recommendationKpi.response_time_s !== undefined) {
+                    document.getElementById('kpi-recommendation-time').textContent = recommendationKpi.response_time_s;
+                    updateKPICard('recommendation', recommendationKpi.status);
+                }
+                
+                // Update Cache Hit Rate KPI
+                const cacheKpi = businessKpis.cache_hit_rate;
+                if (cacheKpi && cacheKpi.hit_rate_percent !== undefined) {
+                    document.getElementById('kpi-cache-rate').textContent = cacheKpi.hit_rate_percent;
+                    updateKPICard('cache', cacheKpi.status);
+                }
+                
+                // Update Sync Performance KPI
+                const syncKpi = businessKpis.sync_performance;
+                const syncStatusEl = document.getElementById('kpi-sync-status');
+                if (syncKpi) {
+                    if (syncKpi.sync_enabled && syncKpi.healthy) {
+                        syncStatusEl.textContent = '有効';
+                        syncStatusEl.setAttribute('data-status', 'excellent');
+                        updateKPICard('sync', 'excellent');
+                    } else if (syncKpi.sync_enabled) {
+                        syncStatusEl.textContent = '部分有効';
+                        syncStatusEl.setAttribute('data-status', 'good');
+                        updateKPICard('sync', 'good');
+                    } else {
+                        syncStatusEl.textContent = '無効';
+                        syncStatusEl.setAttribute('data-status', 'poor');
+                        updateKPICard('sync', 'poor');
+                    }
+                }
+                
+                // Update Availability KPI
+                const availabilityKpi = businessKpis.availability;
+                if (availabilityKpi && availabilityKpi.availability_percent !== undefined) {
+                    document.getElementById('kpi-availability').textContent = availabilityKpi.availability_percent;
+                    updateKPICard('availability', availabilityKpi.status);
+                }
+                
+                // Update overall KPI status
+                if (businessKpis.overall) {
+                    updateOverallKPIStatus(businessKpis.overall);
+                }
+            }
+
+            function updateKPICard(kpiType, status) {
+                const kpiCards = document.querySelectorAll('.kpi-card');
+                let targetCard;
+                
+                switch(kpiType) {
+                    case 'health':
+                        targetCard = kpiCards[0];
+                        break;
+                    case 'recommendation':
+                        targetCard = kpiCards[1];
+                        break;
+                    case 'cache':
+                        targetCard = kpiCards[2];
+                        break;
+                    case 'sync':
+                        targetCard = kpiCards[3];
+                        break;
+                    case 'availability':
+                        targetCard = kpiCards[4];
+                        break;
+                }
+                
+                if (targetCard) {
+                    // Remove existing status classes
+                    targetCard.classList.remove('status-excellent', 'status-good', 'status-warning', 'status-poor', 'status-critical');
+                    // Add new status class
+                    targetCard.classList.add(`status-${status}`);
+                }
+            }
+
+            function updateOverallKPIStatus(overallStatus) {
+                const kpiStatusBadge = document.getElementById('kpi-status-badge');
+                
+                if (kpiStatusBadge) {
+                    // Update status badge
+                    kpiStatusBadge.className = `status-badge ${overallStatus.status}`;
+                    const statusTexts = {
+                        excellent: '優秀',
+                        good: '良好', 
+                        mixed: '混合',
+                        poor: '不良',
+                        critical: '深刻'
+                    };
+                    kpiStatusBadge.textContent = statusTexts[overallStatus.status] || '不明';
+                }
+            }
+
+
+            // Deep Check Functionality
+            const deepCheckBtn = document.getElementById('deep-check-btn');
+            const deepCheckResults = document.getElementById('deep-check-results');
+
+            deepCheckBtn.addEventListener('click', async () => {
+                await performDeepCheck();
+            });
+
+            async function performDeepCheck() {
+                const btnText = deepCheckBtn.querySelector('.btn-text');
+                const btnSpinner = deepCheckBtn.querySelector('.btn-spinner');
+                
+                // Show loading state
+                deepCheckBtn.disabled = true;
+                btnText.style.display = 'none';
+                btnSpinner.style.display = 'inline';
+
+                try {
+                    const response = await fetch('/api/v1/monitoring/deep-check', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    const data = await response.json();
+                    displayDeepCheckResults(data);
+                    
+                } catch (error) {
+                    console.error('Deep check failed:', error);
+                    displayDeepCheckError(error);
+                } finally {
+                    // Reset button state
+                    deepCheckBtn.disabled = false;
+                    btnText.style.display = 'inline';
+                    btnSpinner.style.display = 'none';
+                }
+            }
+
+            function displayDeepCheckResults(data) {
+                if (data.error) {
+                    displayDeepCheckError(data.error);
+                    return;
+                }
+
+                const overallStatus = data.overall_assessment;
+                
+                let html = `
+                    <div class="overall-status ${overallStatus.status}">
+                        <div style="font-weight: 600; margin-bottom: 4px;">${overallStatus.message}</div>
+                        <small>チェック時間: ${new Date(data.timestamp).toLocaleTimeString()}</small>
+                    </div>
+                `;
+
+                // Health Check
+                html += createCheckItem('アプリヘルス', data.health_check.status, data.health_check);
+                
+                // API Performance
+                const apiData = data.api_performance;
+                if (apiData.available && apiData.status === 'excellent') {
+                    html += createCheckItem(
+                        `API性能 (${apiData.response_time_s}s)`, 
+                        apiData.status, 
+                        { category: apiData.category }
+                    );
+                } else {
+                    html += createCheckItem('API性能', apiData.status || 'error', apiData);
+                }
+
+                // Sync Status
+                html += createCheckItem('データ同期', data.sync_status.sync_enabled ? 'excellent' : 'poor', data.sync_status);
+                
+                // Cache Performance
+                html += createCheckItem('キャッシュ性能', data.cache_performance.status || 'error', data.cache_performance);
+                
+                // Availability
+                html += createCheckItem('アプリ可用性', data.availability.status || 'error', data.availability);
+
+                // Issues List
+                if (overallStatus.issues && overallStatus.issues.length > 0) {
+                    html += '<div style="margin-top: 8px; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 6px;">';
+                    html += '<div style="font-weight: 600; color: #dc2626; margin-bottom: 4px;">発見された問題:</div>';
+                    overallStatus.issues.forEach(issue => {
+                        html += `<div style="font-size: 11px; color: #dc2626;">• ${issue}</div>`;
+                    });
+                    html += '</div>';
+                }
+
+                // Warnings List
+                if (overallStatus.warnings && overallStatus.warnings.length > 0) {
+                    html += '<div style="margin-top: 8px; padding: 8px; background: rgba(245, 158, 11, 0.1); border-radius: 6px;">';
+                    html += '<div style="font-weight: 600; color: #f59e0b; margin-bottom: 4px;">警告項目:</div>';
+                    overallStatus.warnings.forEach(warning => {
+                        html += `<div style="font-size: 11px; color: #f59e0b;">• ${warning}</div>`;
+                    });
+                    html += '</div>';
+                }
+
+                // Recommendations List
+                if (overallStatus.recommendations && overallStatus.recommendations.length > 0) {
+                    html += '<div style="margin-top: 8px; padding: 8px; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">';
+                    html += '<div style="font-weight: 600; color: #3b82f6; margin-bottom: 4px;">改善提案:</div>';
+                    overallStatus.recommendations.forEach(recommendation => {
+                        html += `<div style="font-size: 11px; color: #3b82f6;">• ${recommendation}</div>`;
+                    });
+                    html += '</div>';
+                }
+
+                deepCheckResults.innerHTML = html;
+                deepCheckResults.style.display = 'block';
+            }
+
+            function createCheckItem(title, status, data) {
+                let statusText, statusClass;
+                
+                switch(status) {
+                    case 'healthy':
+                    case 'success':
+                    case 'connected':
+                    case 'excellent':
+                    case 'good':
+                        statusText = '正常'; statusClass = 'success'; break;
+                    case 'acceptable':
+                    case 'warning':
+                        statusText = '警告'; statusClass = 'warning'; break;
+                    case 'slow':
+                        statusText = '遅い'; statusClass = 'warning'; break;
+                    default:
+                        statusText = 'エラー'; statusClass = 'error'; break;
+                }
+
+                let details = '';
+                if (data.recommendations_generated !== undefined) {
+                    details = ` (${data.recommendations_generated}件の推奨)`;
+                } else if (data.error) {
+                    details = ` (${data.error})`;
+                }
+
+                return `
+                    <div class="check-item">
+                        <span>${title}${details}</span>
+                        <span class="check-status ${statusClass}">${statusText}</span>
+                    </div>
+                `;
+            }
+
+            function displayDeepCheckError(error) {
+                deepCheckResults.innerHTML = `
+                    <div class="overall-status poor">
+                        <div style="font-weight: 600; color: #dc2626;">詳細チェック失敗</div>
+                        <small>${error}</small>
+                    </div>
+                `;
+                deepCheckResults.style.display = 'block';
+            }
+        });
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

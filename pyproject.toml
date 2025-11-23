@@ -1,0 +1,49 @@
+[project]
+name = "saving-advisor-system"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "aiofiles>=24.1.0",
+    "alembic>=1.16.4",
+    "aiosqlite>=0.19.0",
+    "asyncpg>=0.29.0",
+    "celery>=5.5.3",
+    "fastapi>=0.116.1",
+    "gunicorn>=23.0.0",
+    "httpx>=0.28.1",
+    "jinja2>=3.1.6",
+    "langchain>=0.3.27",
+    "langchain-community>=0.3.27",
+    "langchain-openai>=0.3.31",
+    "langsmith>=0.4.17",
+    "matplotlib>=3.10.5",
+    "openai>=1.101.0",
+    "pandas>=2.3.2",
+    "passlib[bcrypt]>=1.7.4",
+    "plotly>=6.3.0",
+    "psutil>=7.0.0",
+    "psycopg2-binary>=2.9.9",
+    "pydantic>=2.11.7",
+    "pydantic-settings>=2.10.1",
+    "python-dotenv>=1.1.1",
+    "python-jose[cryptography]>=3.5.0",
+    "python-multipart>=0.0.20",
+    "redis>=6.4.0",
+    "seaborn>=0.13.2",
+    "sqlalchemy[asyncio]>=2.0.43",
+    "sse-starlette>=3.0.2",
+    "uvicorn[standard]>=0.35.0",
+]
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "flake8>=7.3.0",
+    "mypy>=1.17.1",
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+]

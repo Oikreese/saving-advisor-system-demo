@@ -1,0 +1,170 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: saving_advisor_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: saving_advisor
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: saving_advisor_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # gRPC Server
+  grpc-server:
+    build: .
+    container_name: saving_advisor_grpc
+    ports:
+      - "50051:50051"  # gRPC port
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - SERVER_PORT=50051
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=saving_advisor
+      - DB_DRIVER=postgres
+      - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+      - ./logs:/app/logs
+      - ./.env:/app/.env
+    restart: unless-stopped
+    command: python app/main.py
+
+  # REST Gateway (REST to gRPC)
+  rest-gateway:
+    build: .
+    container_name: saving_advisor_gateway
+    ports:
+      - "8080:8080"  # REST gateway port
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - GATEWAY_PORT=8080
+      - SERVER_PORT=50051
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=saving_advisor
+      - DB_DRIVER=postgres
+      - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      grpc-server:
+        condition: service_started
+    volumes:
+      - ./app:/app/app
+      - ./frontend:/app/frontend
+      - ./start_web_server.py:/app/start_web_server.py
+      - ./.env:/app/.env
+    restart: unless-stopped
+    command: python start_web_server.py
+
+  # Celery Worker (批处理任务)
+  celery-worker:
+    build: .
+    container_name: saving_advisor_celery_worker
+    command: celery -A app.tasks.batch_tasks worker --loglevel=info --concurrency=4
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=saving_advisor
+      - DB_DRIVER=postgres
+      - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+      - ./scripts:/app/scripts
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  # Celery Beat (定时调度器)
+  celery-beat:
+    build: .
+    container_name: saving_advisor_celery_beat
+    command: celery -A app.tasks.batch_tasks beat --loglevel=info
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=saving_advisor
+      - DB_DRIVER=postgres
+      - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+      - ./scripts:/app/scripts
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  # Flower (Celery监控界面)
+  flower:
+    build: .
+    container_name: saving_advisor_flower
+    command: celery -A app.tasks.batch_tasks flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - FLOWER_USER=${FLOWER_USER:-admin}
+      - FLOWER_PASSWORD=${FLOWER_PASSWORD:-admin}
+    depends_on:
+      - redis
+      - celery-worker
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:

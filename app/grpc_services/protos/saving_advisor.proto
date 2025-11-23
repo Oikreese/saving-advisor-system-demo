@@ -1,0 +1,227 @@
+syntax = "proto3";
+
+package saving_advisor;
+
+// ====== 通用消息type ======
+
+// userassetinfo
+message UserAsset {
+  string asset_type = 1;
+  double current_value = 2;
+  double target_allocation = 3;
+  string last_updated = 4;
+}
+
+// userportfolio
+message UserPortfolio {
+  string user_id = 1;
+  repeated UserAsset assets = 2;
+  double total_value = 3;
+  string last_updated = 4;
+}
+
+// recommendationinfo
+message Recommendation {
+  string recommendation_id = 1;
+  string title = 2;
+  string description = 3;
+  string asset_type = 4;
+  double potential_gain = 5;
+  string agent_name = 6;
+  int32 priority = 7;
+}
+
+// 多代理recommendationresponse
+message MultiAgentRecommendations {
+  string user_id = 1;
+  repeated AgentAnalysis analyses = 2;
+  string overall_assessment = 3;
+  string timestamp = 4;
+}
+
+// 代理analysis result
+message AgentAnalysis {
+  string agent_name = 1;
+  string asset_type = 2;
+  string findings = 3;
+  repeated Recommendation recommendations = 4;
+}
+
+// feedbackrequest
+message FeedbackRequest {
+  string user_id = 1;
+  string recommendation_id = 2;
+  string status = 3; // "accepted", "rejected"
+  string rejection_reason = 4; // 可选
+  string rejection_detail = 5; // 可选
+  string agent_name = 6; // 可选
+}
+
+// 可视化data
+message VisualizationData {
+  string chart_type = 1;
+  map<string, double> data = 2;
+  double total_value = 3;
+  string timestamp = 4;
+}
+
+// taskinfo
+message Task {
+  string task_id = 1;
+  string title = 2;
+  string description = 3;
+  string due_date = 4;
+  double completion_reward = 5;
+  string status = 6;
+}
+
+// 综合analysisrequest
+message ComprehensiveAnalysisRequest {
+  string user_id = 1;
+  repeated string accepted_recommendation_ids = 2;
+}
+
+// 综合analysisresponse
+message ComprehensiveAnalysisResponse {
+  string user_id = 1;
+  string comprehensive_summary = 2;
+  double initial_assets = 3;
+  double predicted_assets = 4;
+  string timestamp = 5;
+  bool success = 6;
+  string error_message = 7;
+}
+
+// ====== request/response消息 ======
+
+// baserequest
+message BaseRequest {
+  string user_id = 1;
+}
+
+// baseresponse
+message BaseResponse {
+  bool success = 1;
+  string message = 2;
+  string timestamp = 3;
+  string error_message = 4;
+}
+
+// usercombinerequest
+message PortfolioRequest {
+  string user_id = 1;
+}
+
+// usercombineresponse
+message PortfolioResponse {
+  UserPortfolio portfolio = 1;
+  bool success = 2;
+  string error_message = 3;
+  string timestamp = 4;
+}
+
+// recommendation预览request
+message RecommendationsPreviewRequest {
+  string user_id = 1;
+  bool force_fresh = 2;
+}
+
+// recommendation预览response
+message RecommendationsPreviewResponse {
+  MultiAgentRecommendations recommendations = 1;
+  bool success = 2;
+  string error_message = 3;
+  string timestamp = 4;
+}
+
+// feedbackresponse
+message FeedbackResponse {
+  bool success = 1;
+  string message = 2;
+  string timestamp = 3;
+  string error_message = 4;
+}
+
+// 可视化request
+message VisualizationRequest {
+  string user_id = 1;
+  string chart_type = 2; // "pie", "bar"
+}
+
+// 可视化response
+message VisualizationResponse {
+  VisualizationData data = 1;
+  bool success = 2;
+  string error_message = 3;
+  string timestamp = 4;
+}
+
+// tasklistrequest
+message TasksRequest {
+  string user_id = 1;
+  string time_period = 2; // "monthly", "weekly"
+}
+
+// tasklistresponse
+message TasksResponse {
+  repeated Task tasks = 1;
+  bool success = 2;
+  string error_message = 3;
+  string timestamp = 4;
+}
+
+// sessioncompleterequest
+message SessionFinalizeRequest {
+  string user_id = 1;
+  map<string, FeedbackData> feedback = 2;
+  string session_type = 3;
+  string input_data = 4; // JSON格式
+  string ai_response = 5; // JSON格式
+  int64 processing_time_ms = 6;
+}
+
+// feedbackdata
+message FeedbackData {
+  string title = 1;
+  string status = 2;
+  string rejection_reason = 3;
+}
+
+// health checkresponse
+message HealthResponse {
+  string status = 1;
+  string service = 2;
+  string version = 3;
+  string timestamp = 4;
+}
+
+// 空request（forhealth check等）
+message EmptyRequest {}
+
+// ====== service定义 ======
+
+// 主要 Saving Advisorservice
+service SavingAdvisorService {
+  // health check
+  rpc HealthCheck(EmptyRequest) returns (HealthResponse);
+  
+  // userasset相关
+  rpc GetUserPortfolio(PortfolioRequest) returns (PortfolioResponse);
+  
+  // analysis相关
+  rpc GetGeneralAnalysis(BaseRequest) returns (BaseResponse);
+  
+  // recommendation相关
+  rpc GetRecommendationsPreview(RecommendationsPreviewRequest) returns (RecommendationsPreviewResponse);
+  rpc SubmitRecommendationFeedback(FeedbackRequest) returns (FeedbackResponse);
+  rpc GetComprehensiveAnalysis(ComprehensiveAnalysisRequest) returns (ComprehensiveAnalysisResponse);
+  
+  // 可视化相关
+  rpc GetVisualizationData(VisualizationRequest) returns (VisualizationResponse);
+  
+  // task相关
+  rpc GetUserTasks(TasksRequest) returns (TasksResponse);
+  
+  // session管理
+  rpc FinalizeSession(SessionFinalizeRequest) returns (BaseResponse);
+}

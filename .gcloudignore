@@ -1,0 +1,61 @@
+# This file specifies files that are *not* uploaded to Google Cloud
+# when using gcloud commands. If you remove this file, gcloud will
+# upload all files in the directory (except for files in .gitignore).
+
+# Git files
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+.env
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Documentation
+docs/
+*.md
+README.md
+
+# Data and logs
+*.log
+server.log
+data/
+data_generation/
+
+# Tests
+tests/
+
+# Frontend (如果不需要一起部署)
+frontend/
+
+# Development files
+docker-compose.yml
+.dockerignore
+uv.lock
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
